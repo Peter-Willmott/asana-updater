@@ -163,10 +163,6 @@ def sync():
         existing_tasks_for_survey = [
             e for e in existing_tasks if e['name'].split(': ')[1] == str(survey_id)
         ]
-        existing_task_gid = None
-        if len(existing_tasks_for_survey) > 0:
-            existing_task_gid = existing_tasks_for_survey[0]['gid']
-            existing_task_gids_to_persist.append(existing_task_gid)
 
         survey_has_error = False
         custom_fields = {
@@ -198,7 +194,13 @@ def sync():
         current_stage_gid = get_asana_current_stage_gid_for_job_type(project, s['latest_job_type_id'])
         custom_fields[_ASANA_FIELD_CURRENT_STAGE_GID] = current_stage_gid
 
+        existing_task_gid = None
+        if len(existing_tasks_for_survey) > 0:
+            existing_task_gid = existing_tasks_for_survey[0]['gid']
+
         if survey_has_error:
+            if existing_task_gid:
+                existing_task_gids_to_persist.append(existing_task_gid)
             # print('Survey has error: ', s)
             # print(custom_fields)
             sla_datetime_formatted = \
