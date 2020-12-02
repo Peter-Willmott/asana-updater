@@ -29,23 +29,32 @@ _ASANA_FIELD_MAPPING = {
     }
 }
 
-JOBS_SECRET = json.loads(boto3.client('secretsmanager').get_secret_value(
+_DEBUG = int(os.environ.get('DEBUG', '0'))
+
+_JOBS_SECRET = json.loads(boto3.client('secretsmanager').get_secret_value(
     SecretId=os.environ.get('JOBS_SECRET_ARN')
 )['SecretString'])
 
-# Initialise the sentry config
-sentry_sdk.init(
-    dsn=JOBS_SECRET['SENTRY_DSN'],
-    integrations=[AwsLambdaIntegration(timeout_warning=True)],
-    traces_sample_rate=1.0
-)
-with sentry_sdk.configure_scope() as scope:
-    scope.set_tag('application', 'asana-integrations-survey-issues')
+_MIN_HOURS_FOR_LATEST_JOB = 0.2
+_MAX_HOURS_FOR_LATEST_JOB = 7
+
+_SENTRY_APP_NAME = 'asana-integrations-survey-issues'
+
+if not _DEBUG:
+    print('Here in debug')
+    # Initialise the sentry config
+    sentry_sdk.init(
+        dsn=_JOBS_SECRET['SENTRY_DSN'],
+        integrations=[AwsLambdaIntegration(timeout_warning=True)],
+        traces_sample_rate=1.0
+    )
+    with sentry_sdk.configure_scope() as scope:
+        scope.set_tag('application', _SENTRY_APP_NAME)
 
 
 def get_asana_project(project_gid):
     r = requests.get(f'https://app.asana.com/api/1.0/projects/{project_gid}',
-                     headers={'Authorization': f'Bearer {JOBS_SECRET["ASANA_API_KEY"]}'})
+                     headers={'Authorization': f'Bearer {_JOBS_SECRET["ASANA_API_KEY"]}'})
 
     if r.status_code != 200:
         raise Exception('Unable to fetch project')
@@ -58,7 +67,7 @@ def get_asana_tasks(project_gid):
 
     r = requests.get(f'https://app.asana.com/api/1.0/tasks/?project={project_gid}&completed_since={today}'
                      f'&opt_fields=due_at,name,resource_type',
-                     headers={'Authorization': f'Bearer {JOBS_SECRET["ASANA_API_KEY"]}'})
+                     headers={'Authorization': f'Bearer {_JOBS_SECRET["ASANA_API_KEY"]}'})
 
     if r.status_code != 200:
         raise Exception('Unable to fetch tasks')
@@ -88,14 +97,14 @@ def create_or_update_task_in_asana(survey_id, project_id, sla_datetime, custom_f
         task_data.pop('completed')
         task_data.pop('projects')
         r = requests.put(f'https://app.asana.com/api/1.0/tasks/{existing_task_gid}', json={'data': task_data},
-                         headers={'Authorization': f'Bearer {JOBS_SECRET["ASANA_API_KEY"]}'})
+                         headers={'Authorization': f'Bearer {_JOBS_SECRET["ASANA_API_KEY"]}'})
         if r.status_code != 200:
             raise Exception('Unable to update task')
 
         return r.json()['data']
 
     r = requests.post('https://app.asana.com/api/1.0/tasks', json={'data': task_data},
-                      headers={'Authorization': f'Bearer {JOBS_SECRET["ASANA_API_KEY"]}'})
+                      headers={'Authorization': f'Bearer {_JOBS_SECRET["ASANA_API_KEY"]}'})
     if r.status_code != 201:
         raise Exception('Unable to create task')
 
@@ -104,7 +113,7 @@ def create_or_update_task_in_asana(survey_id, project_id, sla_datetime, custom_f
 
 def update_task_in_asana_to_completed(task_gid):
     r = requests.put(f'https://app.asana.com/api/1.0/tasks/{task_gid}', json={'data': {'completed': True}},
-                     headers={'Authorization': f'Bearer {JOBS_SECRET["ASANA_API_KEY"]}'})
+                     headers={'Authorization': f'Bearer {_JOBS_SECRET["ASANA_API_KEY"]}'})
     if r.status_code != 200:
         raise Exception('Unable to update task')
 
@@ -171,15 +180,14 @@ def sync():
             # This entry can be overwritten if necessary
             custom_fields[_ASANA_FIELD_ISSUE_TYPE_GID] = _ASANA_FIELD_MAPPING[_ASANA_FIELD_ISSUE_TYPE_GID]['slabreach']
 
-        if s['hours_since_start_time'] and s['hours_since_start_time'] > 7:
+        if s['hours_since_start_time'] and s['hours_since_start_time'] > _MAX_HOURS_FOR_LATEST_JOB:
             survey_has_error = True
             custom_fields[_ASANA_FIELD_ISSUE_TYPE_GID] = _ASANA_FIELD_MAPPING[_ASANA_FIELD_ISSUE_TYPE_GID]['>7hours']
 
-        if s['latest_job_error_time'] is not None:
+        if s['latest_job_error_time'] is not None and s['hours_since_error_time'] > _MIN_HOURS_FOR_LATEST_JOB:
             survey_has_error = True
             custom_fields[_ASANA_FIELD_ISSUE_TYPE_GID] = _ASANA_FIELD_MAPPING[_ASANA_FIELD_ISSUE_TYPE_GID]['error']
-
-        if s['latest_job_end_time'] is not None:
+        if s['latest_job_end_time'] is not None and s['hours_since_end_time'] > _MIN_HOURS_FOR_LATEST_JOB:
             survey_has_error = True
             custom_fields[_ASANA_FIELD_ISSUE_TYPE_GID] = _ASANA_FIELD_MAPPING[_ASANA_FIELD_ISSUE_TYPE_GID]['end']
 
