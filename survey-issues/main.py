@@ -40,7 +40,7 @@ sentry_sdk.init(
     traces_sample_rate=1.0
 )
 with sentry_sdk.configure_scope() as scope:
-    scope.set_tag('application', 'survey-fulfilment')
+    scope.set_tag('application', 'asana-integrations-survey-issues')
 
 
 def get_asana_project(project_gid):
