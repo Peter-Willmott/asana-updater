@@ -46,11 +46,11 @@ resource "aws_lambda_function" "survey_issues" {
   filename         = data.archive_file.survey_issues.output_path
   function_name    = "jobs-asana-integrations-survey-issues"
   role             = data.terraform_remote_state.jobs.outputs.jobs_iam_role_arn
-  handler          = "main.handler"
+  handler          = "main.lambda_handler"
   runtime          = "python3.8"
   source_code_hash = data.archive_file.survey_issues.output_base64sha256
   layers           = [data.terraform_remote_state.lambda.outputs.lambda_layer_aero_lib_arn]
-  timeout          = 300
+  timeout          = 900
 
   environment {
     variables = {
@@ -69,4 +69,24 @@ resource "aws_lambda_function" "survey_issues" {
       "subnet-0b8fa19b7389a8a7d"
     ]
   }
+}
+
+resource "aws_cloudwatch_event_rule" "every_sixty_minutes" {
+  name = "trigger-every-60-minutes"
+  description = "Event which triggers every 60 minutes"
+  schedule_expression = "rate(60 minutes)"
+}
+
+resource "aws_cloudwatch_event_target" "trigger_survey_issues_every_sixty_minutes" {
+  rule = aws_cloudwatch_event_rule.every_sixty_minutes.name
+  target_id = aws_lambda_function.survey_issues.function_name
+  arn = aws_lambda_function.survey_issues.arn
+}
+
+resource "aws_lambda_permission" "allow_cloudwatch_to_call_survey_issues" {
+  statement_id = "AllowExecutionFromCloudWatch"
+  action = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.survey_issues.function_name
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.every_sixty_minutes.arn
 }
