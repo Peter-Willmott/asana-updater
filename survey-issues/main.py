@@ -84,6 +84,7 @@ def create_or_update_task_in_asana(survey_id, project_id, sla_datetime, custom_f
         'completed': False,
         'due_at': sla_datetime,
         'html_notes': f'<body>{description}</body>',
+        'followers': [],
         'name': title,
         'custom_fields': custom_fields,
         'projects': [
@@ -96,6 +97,7 @@ def create_or_update_task_in_asana(survey_id, project_id, sla_datetime, custom_f
         task_data.pop('approval_status')
         task_data.pop('completed')
         task_data.pop('projects')
+        task_data.pop('followers')
         r = requests.put(f'https://app.asana.com/api/1.0/tasks/{existing_task_gid}', json={'data': task_data},
                          headers={'Authorization': f'Bearer {_JOBS_SECRET["ASANA_API_KEY"]}'})
         if r.status_code != 200:
