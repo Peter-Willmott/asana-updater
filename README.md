@@ -3,7 +3,7 @@ This a repo of lightweight Asana integrations (lambda functions).
 
 ## Survey issues
 A job which is responsible for keeping the 
-[Data-Ops | Tree Insights | Consurveys™](https://app.asana.com/0/1199123248405069/list) 
+[Data-Ops | Tree Insights | Concernveys™](https://app.asana.com/0/1199123248405069/list) 
 Asana project
 up to date with survey issues. This is based off the following criteria:
 - Survey status 6 (In Progress) or 8 (Satellite Imagery Issue).
