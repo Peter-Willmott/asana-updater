@@ -2,3 +2,5 @@ aeroclient>=0.2.0,<1.0.0
 requests>=2.25.0,<3.0.0
 boto3>=1.14.61,<2.0.0
 sentry-sdk>=0.19.4,<1.0.0
+asana
+Markdown
