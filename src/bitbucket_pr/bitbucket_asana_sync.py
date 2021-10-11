@@ -3,9 +3,8 @@ import datetime
 from src.interfaces.asana_interface import AsanaInterface
 from src.interfaces.bitbucket_interface import BitbucketInterface
 from src.utils.utilities import unmark
-from src.utils.secrets import _JOBS_SECRET
+from src.utils.secrets import JOBS_SECRET
 
-# TODO: Should this be moved to a secret?
 BITBUCKET_USER_TO_ASANA_MAPPING = {
     # 'Nicholas Coles': {
     #     'assignee_id': '1194547565118472',
@@ -81,7 +80,7 @@ def get_asana_tasks_to_complete(bitbucket_pr_tasks, asana_tasks):
 
 
 def create_pr_task_in_asana(
-    asana_client, assignee_id, project_id, title, description, link, followers
+    asana_interface, assignee_id, project_id, title, description, link, followers
 ):
     task_data = {
         "approval_status": "pending",
@@ -93,7 +92,7 @@ def create_pr_task_in_asana(
         "projects": [project_id],
         "followers": followers,
     }
-    return AsanaInterface.create_task_in_asana(asana_client, task_data)
+    return asana_interface.create_task_in_asana(task_data)
 
 
 def sync_asana_tasks_from_bitbucket(bitbucket_pr_tasks):
@@ -104,17 +103,17 @@ def sync_asana_tasks_from_bitbucket(bitbucket_pr_tasks):
         assignee_id = BITBUCKET_USER_TO_ASANA_MAPPING[user]["assignee_id"]
         project_id = BITBUCKET_USER_TO_ASANA_MAPPING[user]["project_id"]
 
-        print("Key is: ", _JOBS_SECRET[f"{assignee_id}_ASANA_API_KEY"])
+        print("Key is: ", JOBS_SECRET[f"{assignee_id}_ASANA_API_KEY"])
 
-        asana_client = AsanaInterface.get_asana_client(
-            _JOBS_SECRET[f"{assignee_id}_ASANA_API_KEY"]
+        asana_interface = AsanaInterface(
+            JOBS_SECRET[f"{assignee_id}_ASANA_API_KEY"]
         )
 
         bitbucket_pr_tasks_for_user = [
             b for b in bitbucket_pr_tasks if b["assignee"] == user
         ]
 
-        asana_tasks = AsanaInterface.get_asana_tasks(asana_client, project_id)
+        asana_tasks = asana_interface.get_asana_tasks(project_id)
         asana_tasks_to_create = get_asana_tasks_to_create(
             bitbucket_pr_tasks_for_user, asana_tasks
         )
@@ -125,19 +124,20 @@ def sync_asana_tasks_from_bitbucket(bitbucket_pr_tasks):
         for a in asana_tasks_to_create:
             print("Creating task: ", a)
             resp = create_pr_task_in_asana(
-                asana_client,
+                asana_interface,
                 assignee_id,
                 project_id,
                 a["task_name"],
                 a["description"],
                 a["link"],
+                []
             )
             # print(resp)
 
         for a in asana_tasks_to_complete:
             print("Updating task: ", a)
-            resp = AsanaInterface.update_task_in_asana_to_completed(
-                asana_client, a["gid"]
+            resp = asana_interface.update_task_in_asana_to_completed(
+                a["gid"]
             )
             # print(resp)
 

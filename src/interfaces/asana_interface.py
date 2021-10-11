@@ -1,23 +1,22 @@
 import asana
 import datetime
 
-import requests
-
 
 class AsanaInterface:
+    def __init__(self, api_key):
+        self.asana_client = self.get_asana_client(api_key)
+
     @staticmethod
     def get_asana_client(api_key):
         return asana.Client.access_token(api_key)
 
-    @staticmethod
-    def get_asana_project(asana_client, project_gid):
-        result = asana_client.projects.get_project(project_gid, opt_pretty=True)
+    def get_asana_project(self, project_gid):
+        result = self.asana_client.projects.get_project(project_gid, opt_pretty=True)
         return result
 
-    @staticmethod
-    def get_asana_tasks(asana_client, project_id):
+    def get_asana_tasks(self, project_id):
         today = datetime.date.today().strftime("%Y-%m-%d")
-        result = asana_client.tasks.get_tasks(
+        result = self.asana_client.tasks.get_tasks(
             {
                 "project": project_id,
                 "completed_since": today,
@@ -27,16 +26,11 @@ class AsanaInterface:
         )
         return list(result)
 
-    @staticmethod
-    def create_task_in_asana(asana_client, task_data):
-        return asana_client.tasks.create_task(task_data, opt_pretty=True)
+    def create_task_in_asana(self, task_data):
+        return self.asana_client.tasks.create_task(task_data, opt_pretty=True)
 
-    @staticmethod
-    def update_task_in_asana_to_completed(asana_client, task_gid):
-        return AsanaInterface.update_task_in_asana(
-            asana_client, task_gid, {"completed": True}
-        )
+    def update_task_in_asana_to_completed(self, task_gid):
+        return self.update_task_in_asana(task_gid, {"completed": True})
 
-    @staticmethod
-    def update_task_in_asana(asana_client, task_gid, task_data):
-        return asana_client.tasks.update_task(task_gid, task_data, opt_pretty=True)
+    def update_task_in_asana(self, task_gid, task_data):
+        return self.asana_client.tasks.update_task(task_gid, task_data, opt_pretty=True)

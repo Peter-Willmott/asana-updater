@@ -14,6 +14,7 @@ terraform {
   }
 }
 
+
 data "terraform_remote_state" "lambda" {
   backend = "remote"
   config = {
@@ -36,19 +37,20 @@ data "terraform_remote_state" "jobs" {
   }
 }
 
-data "archive_file" "survey_issues" {
-  type        = "zip"
-  source_dir  = "${path.root}/survey-issues/"
-  output_path = "${path.root}/survey-issues/lambda.zip"
+resource "aws_ecr_repository" "ecr_repository" {
+  name                 = "jobs/asana-integrations/production"
+  image_tag_mutability = "MUTABLE"
 }
 
+
 resource "aws_lambda_function" "survey_issues" {
-  filename         = data.archive_file.survey_issues.output_path
+  image_uri        = var.image_uri
   function_name    = "jobs-asana-integrations-survey-issues"
+  package_type     = "Image"
+  publish          = true
   role             = data.terraform_remote_state.jobs.outputs.jobs_iam_role_arn
   handler          = "main.lambda_handler"
   runtime          = "python3.8"
-  source_code_hash = data.archive_file.survey_issues.output_base64sha256
   layers           = [data.terraform_remote_state.lambda.outputs.lambda_layer_aero_lib_arn]
   timeout          = 900
 
@@ -68,6 +70,10 @@ resource "aws_lambda_function" "survey_issues" {
       "subnet-0fd06654c739301f7",
       "subnet-0b8fa19b7389a8a7d"
     ]
+  }
+
+  image_config {
+    command = ["main.sync_survey_issues_to_asana_handler"]
   }
 }
 

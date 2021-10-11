@@ -1,6 +1,6 @@
 import requests
 
-from src.utils.secrets import _JOBS_SECRET
+from src.utils.secrets import JOBS_SECRET
 
 
 BITBUCKET_URL = "https://bitbucket.org/site/oauth2/access_token"
@@ -21,8 +21,8 @@ class BitbucketInterface:
             },
             data={
                 "grant_type": "client_credentials",
-                "client_id": _JOBS_SECRET["BITBUCKET_CLIENT_ID"],
-                "client_secret": _JOBS_SECRET["BITBUCKET_SECRET"],
+                "client_id": JOBS_SECRET["BITBUCKET_CLIENT_ID"],
+                "client_secret": JOBS_SECRET["BITBUCKET_SECRET"],
                 "expires_in": 1000,
             },
         ).json()["access_token"]
@@ -51,6 +51,7 @@ class BitbucketInterface:
 
         return resp
 
+    @staticmethod
     def get_prs_for_user(access_token, user_uuid):
         return requests.get(
             f"{BITBUCKET_PR_URL}/{user_uuid}",

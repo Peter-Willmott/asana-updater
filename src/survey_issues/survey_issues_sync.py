@@ -1,11 +1,12 @@
 import os
 
 import sentry_sdk
+from aeroclient.drf import get_response_assert_success
+from aeroclient.sherlock import get_sherlock_drf_client
 from sentry_sdk.integrations.aws_lambda import AwsLambdaIntegration
 
 from src.interfaces.asana_interface import AsanaInterface
-from src.interfaces.gateway_interface import GatewayInterface
-from src.utils.secrets import _JOBS_SECRET
+from src.utils.secrets import JOBS_SECRET
 
 
 _ASANA_FIELD_CURRENT_STAGE_GID = "1199163649964273"
@@ -35,7 +36,7 @@ _SENTRY_APP_NAME = "asana-integrations-survey-issues"
 if not _DEBUG:
     # Initialise the sentry config
     sentry_sdk.init(
-        dsn=_JOBS_SECRET["SENTRY_DSN"],
+        dsn=JOBS_SECRET["SENTRY_DSN"],
         integrations=[AwsLambdaIntegration(timeout_warning=True)],
         traces_sample_rate=1.0,
     )
@@ -44,7 +45,7 @@ if not _DEBUG:
 
 
 def create_or_update_task_in_asana(
-    asana_clint,
+    asana_interface,
     survey_id,
     project_id,
     sla_datetime,
@@ -71,9 +72,9 @@ def create_or_update_task_in_asana(
         task_data.pop("completed")
         task_data.pop("projects")
         task_data.pop("followers")
-        return AsanaInterface.update_task_in_asana(asana_clint, task_data)
+        return asana_interface.update_task_in_asana(existing_task_gid, task_data)
 
-    return AsanaInterface.create_task_in_asana(asana_clint, task_data)
+    return asana_interface.create_task_in_asana(task_data)
 
 
 def get_asana_current_stage_gid_for_job_type(project, type_id):
@@ -96,20 +97,27 @@ def get_asana_current_stage_gid_for_job_type(project, type_id):
     return enum_option["gid"]
 
 
-def complete_finished_tasks(existing_tasks, existing_task_gids_to_persist):
-    tasks_to_complete = [
-        e for e in existing_tasks if e["gid"] not in existing_task_gids_to_persist
-    ]
+def complete_finished_tasks(asana_interface, existing_tasks, existing_task_gids_to_persist):
+    tasks_to_complete = [e for e in existing_tasks if e["gid"] not in existing_task_gids_to_persist]
     for t in tasks_to_complete:
         print("Completing: ", t["name"])
-        AsanaInterface.update_task_in_asana_to_completed(t["gid"])
+        asana_interface.update_task_in_asana_to_completed(t["gid"])
+
+
+def get_survey_issues():
+    gateway_api_client = get_sherlock_drf_client("gateway")
+    return get_response_assert_success(
+        gateway_api_client.surveys_get_in_progress_latest_internal_job_status(
+            override_http_method="get"
+        )
+    )
 
 
 def sync_survey_issues_to_asana():
-    asana_client = AsanaInterface.get_asana_client(_JOBS_SECRET["ASANA_API_KEY"])
-    project = AsanaInterface.get_asana_project(asana_client, _ASANA_PROJECT_ID)
-    survey_issues = GatewayInterface.get_survey_issues_data()
-    existing_tasks = AsanaInterface.get_asana_tasks(asana_client, _ASANA_PROJECT_ID)
+    asana_interface = AsanaInterface(JOBS_SECRET["ASANA_API_KEY"])
+    project = asana_interface.get_asana_project(_ASANA_PROJECT_ID)
+    survey_issues = get_survey_issues()
+    existing_tasks = asana_interface.get_asana_tasks(_ASANA_PROJECT_ID)
     # Variable to keep track of existing tasks which should be there
     existing_task_gids_to_persist = []
     for s in survey_issues:
@@ -132,10 +140,7 @@ def sync_survey_issues_to_asana():
                 _ASANA_FIELD_ISSUE_TYPE_GID
             ]["slabreach"]
 
-        if (
-            s["hours_since_start_time"]
-            and s["hours_since_start_time"] > _MAX_HOURS_FOR_LATEST_JOB
-        ):
+        if s["hours_since_start_time"] and s["hours_since_start_time"] > _MAX_HOURS_FOR_LATEST_JOB:
             survey_has_error = True
             custom_fields[_ASANA_FIELD_ISSUE_TYPE_GID] = _ASANA_FIELD_MAPPING[
                 _ASANA_FIELD_ISSUE_TYPE_GID
@@ -191,7 +196,7 @@ def sync_survey_issues_to_asana():
             )
 
             create_or_update_task_in_asana(
-                asana_client,
+                asana_interface,
                 s["survey_id"],
                 _ASANA_PROJECT_ID,
                 sla_datetime_formatted,
@@ -201,4 +206,4 @@ def sync_survey_issues_to_asana():
             )
             print("Created/updated task for: ", s["survey_id"])
 
-    complete_finished_tasks(existing_tasks, existing_task_gids_to_persist)
+    complete_finished_tasks(asana_interface, existing_tasks, existing_task_gids_to_persist)
