@@ -17,3 +17,22 @@ Currently not in this repo. To be added.
 
 ## Google calendar
 Currently not in this repo. To be added.
+
+
+# Testing
+Build
+```
+docker build -t jobs-asana-integrations:latest . --build-arg PIP_EXTRA_INDEX_URL=$PIP_EXTRA_INDEX_URL 
+```
+Run container
+```
+docker run \
+-p 9000:8080 \
+-v ~/.aws:/root/.aws \
+-v ~/.aero:/root/.aero \
+jobs-asana-integrations:latest
+```
+Test container
+```
+curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
+```
