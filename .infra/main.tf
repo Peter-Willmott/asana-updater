@@ -82,6 +82,41 @@ resource "aws_lambda_function" "survey_issues" {
   }
 }
 
+resource "aws_lambda_function" "thermal_uploads" {
+  image_uri        = var.image_uri
+  function_name    = "jobs-asana-integrations-thermal-uploads"
+  package_type     = "Image"
+  publish          = true
+  role             = data.terraform_remote_state.jobs.outputs.jobs_iam_role_arn
+  handler          = "main.lambda_handler"
+  runtime          = "python3.8"
+  layers           = [data.terraform_remote_state.lambda.outputs.lambda_layer_aero_lib_arn]
+  timeout          = 900
+
+  environment {
+    variables = {
+      SHERLOCK_GATEWAY_ACCESS_TOKEN = "AERO-INTERNAL-PASS"
+      JOBS_SECRET_ARN = data.terraform_remote_state.jobs.outputs.jobs_general_secret_arn
+      UPDATE_TASK_ONLY_ON_COMPLETE_STATUS = "True"
+    }
+  }
+
+  vpc_config {
+    security_group_ids = [
+      data.terraform_remote_state.jobs.outputs.sherlock_vpc_security_group_id
+    ]
+    // Need private subnets because of the NAT Gateway so that the lambda can connect to internet
+    subnet_ids = [
+      "subnet-0fd06654c739301f7",
+      "subnet-0b8fa19b7389a8a7d"
+    ]
+  }
+
+  image_config {
+    command = ["main.sync_thermal_uploads_handler"]
+  }
+}
+
 resource "aws_cloudwatch_event_rule" "every_sixty_minutes" {
   name = "trigger-every-60-minutes"
   description = "Event which triggers every 60 minutes"
