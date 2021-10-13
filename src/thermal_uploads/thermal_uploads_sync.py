@@ -37,7 +37,7 @@ _UPDATE_TASK_ONLY_ON_COMPLETE_STATUS = os.getenv(
 
 
 def get_unprocessed_uploads_with_thermal_data():
-    gateway_api_client = get_sherlock_drf_client("gateway", microservice_environment="staging")
+    gateway_api_client = get_sherlock_drf_client("gateway")
     unprocessed_uploads = sorted(
         get_response_assert_success(
             gateway_api_client.uploads_unprocessed(override_http_method="get")

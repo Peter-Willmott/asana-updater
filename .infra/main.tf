@@ -56,7 +56,6 @@ resource "aws_lambda_function" "survey_issues" {
   role             = data.terraform_remote_state.jobs.outputs.jobs_iam_role_arn
   handler          = "main.lambda_handler"
   runtime          = "python3.8"
-  layers           = [data.terraform_remote_state.lambda.outputs.lambda_layer_aero_lib_arn]
   timeout          = 900
 
   environment {
@@ -90,7 +89,6 @@ resource "aws_lambda_function" "thermal_uploads" {
   role             = data.terraform_remote_state.jobs.outputs.jobs_iam_role_arn
   handler          = "main.lambda_handler"
   runtime          = "python3.8"
-  layers           = [data.terraform_remote_state.lambda.outputs.lambda_layer_aero_lib_arn]
   timeout          = 900
 
   environment {
@@ -133,6 +131,20 @@ resource "aws_lambda_permission" "allow_cloudwatch_to_call_survey_issues" {
   statement_id = "AllowExecutionFromCloudWatch"
   action = "lambda:InvokeFunction"
   function_name = aws_lambda_function.survey_issues.function_name
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.every_sixty_minutes.arn
+}
+
+resource "aws_cloudwatch_event_target" "trigger_thermal_uploads_every_sixty_minutes" {
+  rule = aws_cloudwatch_event_rule.every_sixty_minutes.name
+  target_id = aws_lambda_function.thermal_uploads.function_name
+  arn = aws_lambda_function.thermal_uploads.arn
+}
+
+resource "aws_lambda_permission" "allow_cloudwatch_to_call_thermal_uploads" {
+  statement_id = "AllowExecutionFromCloudWatch"
+  action = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.thermal_uploads.function_name
   principal = "events.amazonaws.com"
   source_arn = aws_cloudwatch_event_rule.every_sixty_minutes.arn
 }
