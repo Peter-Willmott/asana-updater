@@ -4,7 +4,7 @@ set_base_docker_image: &set_base_docker_image
   docker:
     - image: cimg/python:3.8
   environment:
-    ECR_REPOSITORY: jobs/asana-integrations/production
+    ECR_REPOSITORY: jobs/asana-integrations
   working_directory: ~/project
 
 set_env_vars: &set_env_vars
