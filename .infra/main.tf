@@ -1,6 +1,5 @@
 provider "aws" {
   region  = "us-east-1"
-  version = "~> 2.56.0"
 }
 
 terraform {
@@ -10,6 +9,12 @@ terraform {
 
     workspaces {
       name = "jobs-asana-integrations"
+    }
+  }
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "~> 3.37.0"
     }
   }
 }

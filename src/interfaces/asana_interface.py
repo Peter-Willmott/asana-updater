@@ -14,20 +14,39 @@ class AsanaInterface:
         result = self.asana_client.projects.get_project(project_gid, opt_pretty=True)
         return result
 
-    def get_asana_tasks(self, project_id):
+    def get_asana_tasks(self, project_id=None, **filter_kwargs):
         today = datetime.date.today().strftime("%Y-%m-%d")
+        filters = {
+            "completed_since": today,
+            "opt_fields": "due_at,name,resource_type,completed",
+            **filter_kwargs,
+        }
+        if project_id:
+            filters["project"] = project_id
         result = self.asana_client.tasks.get_tasks(
-            {
-                "project": project_id,
-                "completed_since": today,
-                "opt_fields": "due_at,name,resource_type",
-            },
+            filters,
             opt_pretty=True,
         )
         return list(result)
 
+    def get_subtasks(self, task_gid):
+        return self.asana_client.tasks.get_subtasks_for_task(task_gid, opt_pretty=True)
+
+    def get_task(self, task_gid):
+        return self.asana_client.tasks.get_task(task_gid, opt_pretty=True)
+
+    def add_task_to_section(self, task_gid, section_gid):
+        return self.asana_client.sections.add_task_for_section(
+            section_gid, {"task": task_gid}, opt_pretty=True
+        )
+
     def create_task_in_asana(self, task_data):
         return self.asana_client.tasks.create_task(task_data, opt_pretty=True)
+
+    def create_subtask(self, task_gid, subtask_data):
+        return self.asana_client.tasks.create_subtask_for_task(
+            task_gid, subtask_data, opt_pretty=True
+        )
 
     def update_task_in_asana_to_completed(self, task_gid):
         return self.update_task_in_asana(task_gid, {"completed": True})
