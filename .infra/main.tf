@@ -54,8 +54,6 @@ resource "aws_lambda_function" "survey_issues" {
   package_type     = "Image"
   publish          = true
   role             = data.terraform_remote_state.jobs.outputs.jobs_iam_role_arn
-  handler          = "main.lambda_handler"
-  runtime          = "python3.8"
   timeout          = 900
 
   environment {
@@ -87,8 +85,6 @@ resource "aws_lambda_function" "thermal_uploads" {
   package_type     = "Image"
   publish          = true
   role             = data.terraform_remote_state.jobs.outputs.jobs_iam_role_arn
-  handler          = "main.lambda_handler"
-  runtime          = "python3.8"
   timeout          = 900
 
   environment {
