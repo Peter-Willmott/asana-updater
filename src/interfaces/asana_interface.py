@@ -14,11 +14,11 @@ class AsanaInterface:
         result = self.asana_client.projects.get_project(project_gid, opt_pretty=True)
         return result
 
-    def get_asana_tasks(self, project_id=None, **filter_kwargs):
+    def get_asana_tasks(self, project_id=None, opt_fields="due_at,name,resource_type,completed", **filter_kwargs):
         today = datetime.date.today().strftime("%Y-%m-%d")
         filters = {
             "completed_since": today,
-            "opt_fields": "due_at,name,resource_type,completed",
+            "opt_fields": opt_fields,
             **filter_kwargs,
         }
         if project_id:

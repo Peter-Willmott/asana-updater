@@ -1,4 +1,5 @@
 import os
+import concurrent.futures
 
 import sentry_sdk
 from aeroclient.drf import get_response_assert_success
@@ -30,6 +31,8 @@ _DEBUG = int(os.environ.get("DEBUG", "0"))
 
 _MIN_HOURS_FOR_LATEST_JOB = 0.2
 _MAX_HOURS_FOR_LATEST_JOB = 7
+
+_NUMBER_CONCURRENT_WORKERS = 8
 
 _SENTRY_APP_NAME = "asana-integrations-survey-issues"
 
@@ -66,7 +69,6 @@ def create_or_update_task_in_asana(
         "projects": [project_id],
     }
     if existing_task_gid:
-        print("Updating: ", existing_task_gid)
         # Properties which give issues updating and actually do not need to be updated
         task_data.pop("approval_status")
         task_data.pop("completed")
@@ -99,9 +101,14 @@ def get_asana_current_stage_gid_for_job_type(project, type_id):
 
 def complete_finished_tasks(asana_interface, existing_tasks, existing_task_gids_to_persist):
     tasks_to_complete = [e for e in existing_tasks if e["gid"] not in existing_task_gids_to_persist]
-    for t in tasks_to_complete:
-        print("Completing: ", t["name"])
-        asana_interface.update_task_in_asana_to_completed(t["gid"])
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=_NUMBER_CONCURRENT_WORKERS) as executor:
+        list(
+            executor.map(
+                lambda t: asana_interface.update_task_in_asana_to_completed(t["gid"]),
+                tasks_to_complete,
+            )
+        )
 
 
 def get_survey_issues():
@@ -120,6 +127,8 @@ def sync_survey_issues_to_asana():
     existing_tasks = asana_interface.get_asana_tasks(_ASANA_PROJECT_ID)
     # Variable to keep track of existing tasks which should be there
     existing_task_gids_to_persist = []
+
+    create_or_update_task_in_asana_kwargs_list = []
     for s in survey_issues:
         survey_id = s["survey_id"]
         existing_tasks_for_survey = [
@@ -195,15 +204,26 @@ def sync_survey_issues_to_asana():
                 f'<b>Orchard:</b> {s["orchard_id"]} ({s["hectares"]:.2f} ha)'
             )
 
-            create_or_update_task_in_asana(
-                asana_interface,
-                s["survey_id"],
-                _ASANA_PROJECT_ID,
-                sla_datetime_formatted,
-                custom_fields,
-                description,
-                existing_task_gid,
+            create_or_update_task_in_asana_kwargs_list.append(
+                {
+                    "asana_interface": asana_interface,
+                    "survey_id": s["survey_id"],
+                    "project_id": _ASANA_PROJECT_ID,
+                    "sla_datetime": sla_datetime_formatted,
+                    "custom_fields": custom_fields,
+                    "description": description,
+                    "existing_task_gid": existing_task_gid,
+                }
             )
-            print("Created/updated task for: ", s["survey_id"])
 
+    print("---- Completing tasks ----")
     complete_finished_tasks(asana_interface, existing_tasks, existing_task_gids_to_persist)
+
+    print("--- Updating / creating tasks ---")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=_NUMBER_CONCURRENT_WORKERS) as executor:
+        list(
+            executor.map(
+                lambda x: create_or_update_task_in_asana(**x),
+                create_or_update_task_in_asana_kwargs_list,
+            )
+        )
