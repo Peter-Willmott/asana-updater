@@ -141,13 +141,13 @@ def sync_survey_issues_to_asana():
             _ASANA_FIELD_CLIENT: f'{s["client_name"]} ({s["client_id"]})',
         }
 
-        # Do the error checking
-        if s["sla_on_track"] is False:
-            survey_has_error = True
-            # This entry can be overwritten if necessary
-            custom_fields[_ASANA_FIELD_ISSUE_TYPE_GID] = _ASANA_FIELD_MAPPING[
-                _ASANA_FIELD_ISSUE_TYPE_GID
-            ]["slabreach"]
+        # Might want to add this back in at some point
+        # if s["sla_on_track"] is False:
+        #     survey_has_error = True
+        #     # This entry can be overwritten if necessary
+        #     custom_fields[_ASANA_FIELD_ISSUE_TYPE_GID] = _ASANA_FIELD_MAPPING[
+        #         _ASANA_FIELD_ISSUE_TYPE_GID
+        #     ]["slabreach"]
 
         if s["hours_since_start_time"] and s["hours_since_start_time"] > _MAX_HOURS_FOR_LATEST_JOB:
             survey_has_error = True
