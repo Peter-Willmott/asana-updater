@@ -93,12 +93,16 @@ def generate_description_for_upload(upload):
     )
 
 def handle_upload_tasks(upload, task_gid, existing_upload_tasks):
+    
+    now = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+
     uploads_task_data = sorted(
         [
             {
                 "name": f"Upload: {u['id']}",
                 "html_notes": f"<body>{generate_description_for_upload(u)}</body>",
                 "approval_status": "pending",
+                "completed": u['processed'],
                 "followers": [],
                 "parent": task_gid,
                 "projects": [_ASANA_PROJECT_ID],
@@ -110,8 +114,8 @@ def handle_upload_tasks(upload, task_gid, existing_upload_tasks):
                     **{_ASANA_FIELD_DRONE_SERVICE: u['mapping_drone_service_id'],},
                     **{_ASANA_FIELD_IMAGE_TYPE: _ASANA_FIELD_MAPPING[_ASANA_FIELD_IMAGE_TYPE]['Drone']},
                     **{_ASANA_FIELD_SERVICE_TYPE: _ASANA_FIELD_MAPPING[_ASANA_FIELD_SERVICE_TYPE]['Serviced']},
-                    **{_ASANA_FIELD_PERCENTAGE_COMPLETE: ((u['count_surveys_in_progress'] + u['count_surveys_processed'])/u['count_orchards'])}
-                    #**{_ASANA_FIELD_SLA_ON_TRACK: _ASANA_FIELD_MAPPING[_ASANA_FIELD_SLA_ON_TRACK]["Yes"]}
+                    **{_ASANA_FIELD_PERCENTAGE_COMPLETE: ((u['count_surveys_in_progress'] + u['count_surveys_processed'])/u['count_orchards'])},
+                    **{_ASANA_FIELD_SLA_ON_TRACK: _ASANA_FIELD_MAPPING[_ASANA_FIELD_SLA_ON_TRACK]['Yes'] if datetime.datetime.strptime(u['sla_datetime'], '%Y-%m-%dT%H:%M:%S%z').strftime('%Y-%m-%dT%H:%M:%S') > now else _ASANA_FIELD_MAPPING[_ASANA_FIELD_SLA_ON_TRACK]['No']}
                 },
                 "due_at": (
                     u["sla_datetime"].replace(" ", "T").split("+")[0] + ".000Z"
@@ -229,11 +233,13 @@ def create_or_update_upload_task_for_drone_service(upload, existing_tasks, exist
 
     handle_upload_tasks(upload, task_gid, existing_ds_upload_tasks)
 
-def create_or_update_upload_task(upload, existing_tasks, section):
+def create_or_update_upload_task(upload, existing_tasks, section, image_type, service_type):
     
     due_data_sla_micro = upload['sla_datetime'].replace(" ", "T").split("+")[0]
-    due_data_sla = due_data_sla_micro.split(".")[0] + ".000Z"
+    due_data_sla = due_data_sla_micro.split(".")[0] + "+0000"
+    sla_date = datetime.datetime.strptime(due_data_sla, '%Y-%m-%dT%H:%M:%S%z').strftime('%Y-%m-%dT%H:%M:%S')
 
+    now = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
     task_data = {
         "name": f"Upload ID: {upload['id']}",
         "completed": upload["processed"],
@@ -247,9 +253,10 @@ def create_or_update_upload_task(upload, existing_tasks, section):
             **{_ASANA_FIELD_BLOCKS_COMPLETED: upload['count_surveys_in_progress'] + upload['count_surveys_processed']},
             **{_ASANA_FIELD_BLOCKS_UPLOADED: upload['count_orchards']},
             **{_ASANA_FIELD_DRONE_SERVICE: upload['mapping_drone_service_id'],},
-            **{_ASANA_FIELD_IMAGE_TYPE: _ASANA_FIELD_MAPPING[_ASANA_FIELD_IMAGE_TYPE]['Drone']},
-            **{_ASANA_FIELD_SERVICE_TYPE: _ASANA_FIELD_MAPPING[_ASANA_FIELD_SERVICE_TYPE]['Serviced']},
-            **{_ASANA_FIELD_PERCENTAGE_COMPLETE: ((upload['count_surveys_in_progress'] + upload['count_surveys_processed'])/upload['count_orchards'])}
+            **{_ASANA_FIELD_IMAGE_TYPE: _ASANA_FIELD_MAPPING[_ASANA_FIELD_IMAGE_TYPE][image_type]},
+            **{_ASANA_FIELD_SERVICE_TYPE: _ASANA_FIELD_MAPPING[_ASANA_FIELD_SERVICE_TYPE][service_type]},
+            **{_ASANA_FIELD_PERCENTAGE_COMPLETE: ((upload['count_surveys_in_progress'] + upload['count_surveys_processed'])/upload['count_orchards'])},
+            **{_ASANA_FIELD_SLA_ON_TRACK: _ASANA_FIELD_MAPPING[_ASANA_FIELD_SLA_ON_TRACK]['Yes'] if sla_date > now else _ASANA_FIELD_MAPPING[_ASANA_FIELD_SLA_ON_TRACK]['No']}
         },
         "due_at": due_data_sla,
     }
@@ -299,7 +306,7 @@ def sync_mapping_uploads():
 
     for upload in tqdm(self_serviced_uploads):
         print(f"---------- On Upload: {upload['id']} ----------")
-        create_or_update_upload_task(upload, existing_self_service_tasks, _ASANA_SECTION_SELF_SERVICED)
+        create_or_update_upload_task(upload, existing_self_service_tasks, _ASANA_SECTION_SELF_SERVICED, "Drone", "Self-Serviced")
     
     # Satellite Uploads
     print("Number of Satellite uploads: ", len(satellite_uploads))
@@ -310,6 +317,6 @@ def sync_mapping_uploads():
 
     for upload in tqdm(satellite_uploads):
         print(f"---------- On Upload: {upload['id']} ----------")
-        create_or_update_upload_task(upload, existing_satellite_tasks, _ASANA_SECTION_SATELLITE)
+        create_or_update_upload_task(upload, existing_satellite_tasks, _ASANA_SECTION_SATELLITE, "Satellite" , "Serviced")
 
  
