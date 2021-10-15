@@ -180,6 +180,7 @@ def create_or_update_upload_task_for_drone_service(upload, existing_tasks, exist
         farms = f'{upload[0]["farm_name"]} ({upload[0]["farm_id"]})'
         blocks_completed.append(upload[0]['count_surveys_in_progress'] + upload[0]['count_surveys_processed'])
         blocks_in_upload.append(upload[0]['count_orchards'])
+        print("test")
         
         
     custom_fields = {
