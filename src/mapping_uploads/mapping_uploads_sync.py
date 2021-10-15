@@ -84,8 +84,10 @@ def generate_description_for_upload(upload):
         f'<b>Client: {upload["client_name"]} ({upload["client_id"]})</b>\n\n'
         f'<b>Mapping Drone Service ID: {upload["mapping_drone_service_id"]}</b>\n\n'
         f'<b>Blocks Uploaded: {upload["count_orchards"]}</b>\n\n'
-        f'<b>Blocks Completed: {upload["count_surveys_in_progress"] + upload["count_surveys_processed"]}</b>\n\n'
-        f'<b>Percenrage Completed: {((upload["count_surveys_in_progress"] + upload["count_surveys_processed"])/upload["count_orchards"])*100} %</b>\n\n'
+        f'<b>Blocks Completed: {upload["count_surveys_processed"]}</b>\n\n'
+        f'<b>Blocks In-Progress: {upload["count_surveys_in_progress"]}</b>\n\n'
+        f'<b>Blocks Voided: {upload["count_surveys_voided"]}</b>\n\n'
+        f'<b>Percentage Completed: {((upload["count_surveys_processed"])/upload["count_orchards"])*100} %</b>\n\n'
     )
 
 def handle_upload_tasks(upload, task_gid, existing_upload_tasks):
@@ -162,7 +164,6 @@ def create_or_update_upload_task_for_drone_service(upload, existing_tasks, exist
     if len(upload) > 1:
         for u in upload:            
             farm_names.append(u['farm_name'])
-            blocks_completed.append(u['count_surveys_in_progress'])
             blocks_completed.append(u['count_surveys_processed'])
             blocks_in_upload.append(u['count_orchards'])
 
@@ -174,9 +175,8 @@ def create_or_update_upload_task_for_drone_service(upload, existing_tasks, exist
             farms = ' '.join([str(elem + ', ') for elem in farm_names])
     else:
         farms = f'{upload[0]["farm_name"]} ({upload[0]["farm_id"]})'
-        blocks_completed.append(upload[0]['count_surveys_in_progress'] + upload[0]['count_surveys_processed'])
+        blocks_completed.append(upload[0]['count_surveys_processed'])
         blocks_in_upload.append(upload[0]['count_orchards'])
-        print("test")
         
         
     custom_fields = {
@@ -200,7 +200,7 @@ def create_or_update_upload_task_for_drone_service(upload, existing_tasks, exist
             custom_fields[_ASANA_FIELD_SLA_ON_TRACK] = _ASANA_FIELD_MAPPING[_ASANA_FIELD_SLA_ON_TRACK]['No']
 
     task_data = {
-        "name": f"Drone Service: {upload[0]['mapping_drone_service_id']}",
+        "name": f"{upload[0]['client_name']} | DS: {upload[0]['mapping_drone_service_id']}",
         "completed": upload[0]["processed"],
         "approval_status": "pending",
         "followers": [],
@@ -238,7 +238,7 @@ def create_or_update_upload_task(upload, existing_tasks, section, image_type, se
 
     now = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
     task_data = {
-        "name": f"Upload ID: {upload['id']}",
+        "name": f"{upload['client_name']} | Upload: {upload['id']}",
         "completed": upload["processed"],
         "html_notes": f"<body>{generate_description_for_upload(upload)}</body>",
         "approval_status": "pending",
@@ -247,12 +247,12 @@ def create_or_update_upload_task(upload, existing_tasks, section, image_type, se
         "custom_fields": {
             **{_ASANA_FIELD_CLIENT: f'{upload["client_name"]} ({upload["client_id"]})'},
             **{_ASANA_FIELD_FARM: f'{upload["farm_name"]} ({upload["farm_id"]})'},
-            **{_ASANA_FIELD_BLOCKS_COMPLETED: upload['count_surveys_in_progress'] + upload['count_surveys_processed']},
+            **{_ASANA_FIELD_BLOCKS_COMPLETED: upload['count_surveys_processed']},
             **{_ASANA_FIELD_BLOCKS_UPLOADED: upload['count_orchards']},
             **{_ASANA_FIELD_DRONE_SERVICE: upload['mapping_drone_service_id'],},
             **{_ASANA_FIELD_IMAGE_TYPE: _ASANA_FIELD_MAPPING[_ASANA_FIELD_IMAGE_TYPE][image_type]},
             **{_ASANA_FIELD_SERVICE_TYPE: _ASANA_FIELD_MAPPING[_ASANA_FIELD_SERVICE_TYPE][service_type]},
-            **{_ASANA_FIELD_PERCENTAGE_COMPLETE: ((upload['count_surveys_in_progress'] + upload['count_surveys_processed'])/upload['count_orchards'])},
+            **{_ASANA_FIELD_PERCENTAGE_COMPLETE: ((upload['count_surveys_processed'])/upload['count_orchards'])},
             **{_ASANA_FIELD_SLA_ON_TRACK: _ASANA_FIELD_MAPPING[_ASANA_FIELD_SLA_ON_TRACK]['Yes'] if sla_date > now else _ASANA_FIELD_MAPPING[_ASANA_FIELD_SLA_ON_TRACK]['No']}
         },
         "due_at": due_data_sla,
