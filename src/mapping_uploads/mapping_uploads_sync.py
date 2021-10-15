@@ -107,12 +107,12 @@ def handle_upload_tasks(upload, task_gid, existing_upload_tasks):
                 "custom_fields": {
                     **{_ASANA_FIELD_CLIENT: f'{u["client_name"]} ({u["client_id"]})'},
                     **{_ASANA_FIELD_FARM: f'{u["farm_name"]} ({u["farm_id"]})'},
-                    **{_ASANA_FIELD_BLOCKS_COMPLETED: u['count_surveys_in_progress'] + u['count_surveys_processed']},
+                    **{_ASANA_FIELD_BLOCKS_COMPLETED: u['count_surveys_processed']},
                     **{_ASANA_FIELD_BLOCKS_UPLOADED: u['count_orchards']},
                     **{_ASANA_FIELD_DRONE_SERVICE: u['mapping_drone_service_id'],},
                     **{_ASANA_FIELD_IMAGE_TYPE: _ASANA_FIELD_MAPPING[_ASANA_FIELD_IMAGE_TYPE]['Drone']},
                     **{_ASANA_FIELD_SERVICE_TYPE: _ASANA_FIELD_MAPPING[_ASANA_FIELD_SERVICE_TYPE]['Serviced']},
-                    **{_ASANA_FIELD_PERCENTAGE_COMPLETE: ((u['count_surveys_in_progress'] + u['count_surveys_processed'])/u['count_orchards'])},
+                    **{_ASANA_FIELD_PERCENTAGE_COMPLETE: ((u['count_surveys_processed'])/u['count_orchards'])},
                     **{_ASANA_FIELD_SLA_ON_TRACK: _ASANA_FIELD_MAPPING[_ASANA_FIELD_SLA_ON_TRACK]['Yes'] if datetime.datetime.strptime(u['sla_datetime'], '%Y-%m-%dT%H:%M:%S%z').strftime('%Y-%m-%dT%H:%M:%S') > now else _ASANA_FIELD_MAPPING[_ASANA_FIELD_SLA_ON_TRACK]['No']}
                 },
                 "due_at": (
