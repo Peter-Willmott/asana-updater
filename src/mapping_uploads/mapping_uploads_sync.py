@@ -61,11 +61,7 @@ def get_unprocessed_uploads():
     # Don't return thermal data as it is already covered in the thermal uploads asana board
     uploads = [u for u in unprocessed_uploads if u["has_thermal_data"] == False]
     
-    drone_service_uploads = [ds for ds in uploads if ds["mapping_drone_service_id"]]    
-    drone_flights = []
-    for ds in drone_service_uploads:
-        if ds['mapping_drone_service_id'] != None:
-            drone_flights.append(ds)
+    drone_flights = [ds for ds in uploads if ds["mapping_drone_service_id"]]    
 
     drone_flights.sort(key=lambda x:x['mapping_drone_service_id'])
     ds_grouped_uploads = []
