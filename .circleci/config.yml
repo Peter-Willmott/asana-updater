@@ -83,14 +83,22 @@ workflows:
   version: 2
 
   Build, Deploy:
-    when:
-      matches:
-        pattern: "^master$"
-        value: << pipeline.git.branch >>
+    # when:
+    #   matches:
+    #     pattern: "^master$"
+    #     value: << pipeline.git.branch >>
     jobs:
       - Build and push:
           context: sherlock
+          filters:
+            branches:
+              only:
+                - master
       - Deploy:
           context: sherlock
           requires:
             - Build and push
+          filters:
+            branches:
+              only:
+                - master
