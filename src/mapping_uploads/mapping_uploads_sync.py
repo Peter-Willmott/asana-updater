@@ -84,7 +84,12 @@ def get_unprocessed_uploads():
 
 def generate_description_for_upload(upload):
     return (
-        f'<b>Farm:</b>'
+        f'<b>Farm: {upload["farm_name"]} ({upload["farm_id"]})</b>\n\n'
+        f'<b>Client: {upload["client_name"]} ({upload["client_id"]})</b>\n\n'
+        f'<b>Mapping Drone Service ID: {upload["mapping_drone_service_id"]}</b>\n\n'
+        f'<b>Blocks Uploaded: {upload["count_orchards"]}</b>\n\n'
+        f'<b>Blocks Completed: {upload["count_surveys_in_progress"] + upload["count_surveys_processed"]}</b>\n\n'
+        f'<b>Percenrage Completed: {((upload["count_surveys_in_progress"] + upload["count_surveys_processed"])/upload["count_orchards"])*100} %</b>\n\n'
     )
 
 def handle_upload_tasks(upload, task_gid, existing_upload_tasks):
@@ -93,7 +98,6 @@ def handle_upload_tasks(upload, task_gid, existing_upload_tasks):
             {
                 "name": f"Upload: {u['id']}",
                 "html_notes": f"<body>{generate_description_for_upload(u)}</body>",
-                "completed": False, #True if upload["status_id"] == 1 else False,
                 "approval_status": "pending",
                 "followers": [],
                 "parent": task_gid,
@@ -227,9 +231,13 @@ def create_or_update_upload_task_for_drone_service(upload, existing_tasks, exist
 
 def create_or_update_upload_task(upload, existing_tasks, section):
     
+    due_data_sla_micro = upload['sla_datetime'].replace(" ", "T").split("+")[0]
+    due_data_sla = due_data_sla_micro.split(".")[0] + ".000Z"
+
     task_data = {
-        "name": f"Drone Service: {upload['mapping_drone_service_id']}",
+        "name": f"Upload ID: {upload['id']}",
         "completed": upload["processed"],
+        "html_notes": f"<body>{generate_description_for_upload(upload)}</body>",
         "approval_status": "pending",
         "followers": [],
         "projects": [_ASANA_PROJECT_ID],
@@ -243,7 +251,7 @@ def create_or_update_upload_task(upload, existing_tasks, section):
             **{_ASANA_FIELD_SERVICE_TYPE: _ASANA_FIELD_MAPPING[_ASANA_FIELD_SERVICE_TYPE]['Serviced']},
             **{_ASANA_FIELD_PERCENTAGE_COMPLETE: ((upload['count_surveys_in_progress'] + upload['count_surveys_processed'])/upload['count_orchards'])}
         },
-        "due_at": upload['sla_datetime'].replace(" ", "T").split("+")[0] + ".000Z",
+        "due_at": due_data_sla,
     }
     existing_upload_tasks = [u for u in existing_tasks if u["name"] == task_data["name"]]
     if existing_upload_tasks:
