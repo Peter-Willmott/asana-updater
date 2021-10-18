@@ -50,7 +50,7 @@ _UPDATE_TASK_ONLY_ON_COMPLETE_STATUS = os.getenv(
 ).lower() in ("true", "1", "t")
 
 def get_unprocessed_uploads():
-    gateway_api_client = get_sherlock_drf_client("gateway", microservice_environment="staging")
+    gateway_api_client = get_sherlock_drf_client("gateway")
     unprocessed_uploads = sorted(
         get_response_assert_success(
             gateway_api_client.uploads_unprocessed(override_http_method="get")
