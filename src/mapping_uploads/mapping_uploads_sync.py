@@ -2,6 +2,7 @@ import os
 from tqdm import tqdm
 from itertools import groupby
 import datetime
+from dateutil.relativedelta import relativedelta
 
 from aeroclient.drf import get_response_assert_success
 from aeroclient.sherlock import get_sherlock_drf_client
@@ -51,9 +52,10 @@ _UPDATE_TASK_ONLY_ON_COMPLETE_STATUS = os.getenv(
 
 def get_unprocessed_uploads():
     gateway_api_client = get_sherlock_drf_client("gateway")
+    six_months = datetime.datetime.today() + relativedelta(months=-6)
     unprocessed_uploads = sorted(
         get_response_assert_success(
-            gateway_api_client.uploads_unprocessed(override_http_method="get")
+            gateway_api_client.requester.get_request(f"/uploads/unprocessed/?upload_completed_on__gte ={six_months}")
         ),
         key=lambda u: u["id"],
     )
