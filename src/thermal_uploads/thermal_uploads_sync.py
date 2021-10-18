@@ -1,4 +1,5 @@
 import os
+import concurrent.futures
 from tqdm import tqdm
 
 from aeroclient.drf import get_response_assert_success
@@ -21,6 +22,8 @@ _ASANA_SECTION_MAPPING_DRONE_FLIGHT = "1201167542694773"
 
 
 INTERNAL_TOOLS_URL = "https://internal-tools.aerobotics.com/internal-tools"
+
+_NUMBER_CONCURRENT_WORKERS = 5
 
 
 _TASK_CUSTOM_FIELD_MAPPING = {
@@ -138,11 +141,31 @@ def create_or_update_upload_task(upload, existing_tasks, existing_survey_tasks):
     handle_survey_tasks(upload, task_gid, existing_survey_tasks)
 
 
+def complete_finished_uploads(uploads, existing_upload_tasks):
+    """
+    Do we need to include completion of surveys at this level?
+    :param uploads:
+    :param existing_upload_tasks:
+    :return:
+    """
+    upload_task_names = [
+        f"Upload: {upload['id']}" for upload in uploads
+    ]
+    tasks_to_complete = [e for e in existing_upload_tasks if e["name"] not in upload_task_names]
+    print(f"Need to complete: {len(tasks_to_complete)} uploads")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=_NUMBER_CONCURRENT_WORKERS) as executor:
+        list(
+            executor.map(
+                lambda t: asana_interface.update_task_in_asana_to_completed(t["gid"]),
+                tasks_to_complete,
+            )
+        )
+
+
 def sync_thermal_uploads():
     thermal_uploads = get_unprocessed_uploads_with_thermal_data()
     print("Number of thermal uploads: ", len(thermal_uploads))
-
-    # project = asana_interface.get_asana_project(_ASANA_PROJECT_ID)
 
     existing_upload_tasks = asana_interface.get_asana_tasks(section=_ASANA_SECTION_UPLOADS)
     existing_survey_tasks = asana_interface.get_asana_tasks(section=_ASANA_SECTION_SURVEYS)
@@ -152,3 +175,5 @@ def sync_thermal_uploads():
     for upload in tqdm(thermal_uploads):
         print(f"---------- On upload: {upload['id']} ----------")
         create_or_update_upload_task(upload, existing_upload_tasks, existing_survey_tasks)
+
+    complete_finished_uploads(thermal_uploads, existing_upload_tasks)
