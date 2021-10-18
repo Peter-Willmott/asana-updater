@@ -1,6 +1,5 @@
 import os
 import concurrent.futures
-from tqdm import tqdm
 
 from aeroclient.drf import get_response_assert_success
 from aeroclient.sherlock import get_sherlock_drf_client
@@ -23,7 +22,7 @@ _ASANA_SECTION_MAPPING_DRONE_FLIGHT = "1201167542694773"
 
 INTERNAL_TOOLS_URL = "https://internal-tools.aerobotics.com/internal-tools"
 
-_NUMBER_CONCURRENT_WORKERS = 5
+_NUMBER_CONCURRENT_WORKERS = 3
 
 
 _TASK_CUSTOM_FIELD_MAPPING = {
@@ -35,7 +34,7 @@ _TASK_CUSTOM_FIELD_MAPPING = {
 }
 
 _UPDATE_TASK_ONLY_ON_COMPLETE_STATUS = os.getenv(
-    "UPDATE_TASK_ONLY_ON_COMPLETE_STATUS", "True"
+    "UPDATE_TASK_ONLY_ON_COMPLETE_STATUS", "xxx"
 ).lower() in ("true", "1", "t")
 
 
@@ -45,7 +44,8 @@ def get_unprocessed_uploads_with_thermal_data():
         get_response_assert_success(
             gateway_api_client.uploads_unprocessed(override_http_method="get")
         ),
-        key=lambda u: u["id"],
+        key=lambda u: u["sla_datetime"],
+        reverse=True,
     )
     return [u for u in unprocessed_uploads if u["has_thermal_data"]]
 
@@ -78,7 +78,7 @@ def handle_survey_tasks(upload, task_gid, existing_survey_tasks):
         key=lambda s: s["name"],
     )
     print("Surveys to create/update: ", len(surveys_task_data))
-    for survey_task_data in tqdm(surveys_task_data):
+    for survey_task_data in surveys_task_data:
         existing_survey_tasks_by_name = [
             s for s in existing_survey_tasks if s["name"] == survey_task_data["name"]
         ]
@@ -124,7 +124,6 @@ def create_or_update_upload_task(upload, existing_tasks, existing_survey_tasks):
         task_data.pop("approval_status")
         task_data.pop("projects")
         task_data.pop("followers")
-        print(existing_upload_tasks[0])
 
         # If processing status has not changed, no need to update right now
         if (
@@ -132,11 +131,9 @@ def create_or_update_upload_task(upload, existing_tasks, existing_survey_tasks):
             or _UPDATE_TASK_ONLY_ON_COMPLETE_STATUS is False
         ):
             asana_interface.update_task_in_asana(task_gid, task_data)
-            asana_interface.add_task_to_section(task_gid, _ASANA_SECTION_UPLOADS)
     else:
         task = asana_interface.create_task_in_asana(task_data)
         task_gid = task["gid"]
-        asana_interface.add_task_to_section(task_gid, _ASANA_SECTION_UPLOADS)
 
     handle_survey_tasks(upload, task_gid, existing_survey_tasks)
 
@@ -148,9 +145,7 @@ def complete_finished_uploads(uploads, existing_upload_tasks):
     :param existing_upload_tasks:
     :return:
     """
-    upload_task_names = [
-        f"Upload: {upload['id']}" for upload in uploads
-    ]
+    upload_task_names = [f"Upload: {upload['id']}" for upload in uploads]
     tasks_to_complete = [e for e in existing_upload_tasks if e["name"] not in upload_task_names]
     print(f"Need to complete: {len(tasks_to_complete)} uploads")
 
@@ -163,6 +158,22 @@ def complete_finished_uploads(uploads, existing_upload_tasks):
         )
 
 
+def add_upload_task_to_section_ordered(task_gid, tasks):
+    """
+    This function requires an ordered list of tasks in descending order (due_at latest first)
+    :param task_gid:
+    :param tasks:
+    :return:
+    """
+    task_index = [i for i, task in enumerate(tasks) if task["gid"] == task_gid][0]
+    if task_index == 0:
+        kwargs = {"insert_after": tasks[task_index + 1]["gid"]}
+    else:
+        kwargs = {"insert_before": tasks[task_index - 1]["gid"]}
+
+    return asana_interface.add_task_to_section(task_gid, _ASANA_SECTION_UPLOADS, **kwargs)
+
+
 def sync_thermal_uploads():
     thermal_uploads = get_unprocessed_uploads_with_thermal_data()
     print("Number of thermal uploads: ", len(thermal_uploads))
@@ -172,8 +183,31 @@ def sync_thermal_uploads():
 
     print("Number existing uploads: ", len(existing_upload_tasks))
 
-    for upload in tqdm(thermal_uploads):
-        print(f"---------- On upload: {upload['id']} ----------")
-        create_or_update_upload_task(upload, existing_upload_tasks, existing_survey_tasks)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=_NUMBER_CONCURRENT_WORKERS) as executor:
+        list(
+            executor.map(
+                lambda upload: create_or_update_upload_task(upload, existing_upload_tasks, existing_survey_tasks),
+                thermal_uploads,
+            )
+        )
 
-    complete_finished_uploads(thermal_uploads, existing_upload_tasks)
+    upload_tasks_to_sort = [
+        t
+        for t in sorted(
+            asana_interface.get_asana_tasks(section=_ASANA_SECTION_UPLOADS),
+            key=lambda t: t["due_at"], reverse=True
+        )
+        if t.get("completed") is False
+    ]
+
+    # The more concurrent workers the more chance of there being error when sorting (based on timing).
+    # The idea is that after 2-3 syncs it should stabilise
+    with concurrent.futures.ThreadPoolExecutor(max_workers=_NUMBER_CONCURRENT_WORKERS) as executor:
+        list(
+            executor.map(
+                lambda task: add_upload_task_to_section_ordered(task["gid"], upload_tasks_to_sort),
+                upload_tasks_to_sort,
+            )
+        )
+
+    complete_finished_uploads(thermal_uploads, upload_tasks_to_sort)

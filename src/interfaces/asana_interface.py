@@ -35,9 +35,9 @@ class AsanaInterface:
     def get_task(self, task_gid):
         return self.asana_client.tasks.get_task(task_gid, opt_pretty=True)
 
-    def add_task_to_section(self, task_gid, section_gid):
+    def add_task_to_section(self, task_gid, section_gid, **kwargs):
         return self.asana_client.sections.add_task_for_section(
-            section_gid, {"task": task_gid}, opt_pretty=True
+            section_gid, {"task": task_gid, **kwargs}, opt_pretty=True
         )
 
     def create_task_in_asana(self, task_data):
