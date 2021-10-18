@@ -278,6 +278,20 @@ def create_or_update_upload_task(upload, existing_tasks, section, image_type, se
         asana_interface.add_task_to_section(task_gid, section)
 
 
+def asana_upload_sections(uploads, section, image, service):
+    existing_tasks = asana_interface.get_asana_tasks(section=section)
+
+    if image == "Satellite":
+        print("Number of Satellite uploads: ", len(uploads))
+        print("Number existing Satellite uploads: ", len(existing_tasks))
+    else:
+        print("Number of Self-service uploads: ", len(uploads))
+        print("Number existing Self-service uploads: ", len(existing_tasks))        
+
+    for upload in tqdm(uploads):
+        print(f"---------- On Upload: {upload['id']} ----------")
+        create_or_update_upload_task(upload, existing_tasks, section, image, service)
+
 def sync_mapping_uploads():
     drone_service_uploads, satellite_uploads, self_serviced_uploads = get_unprocessed_uploads()
     
@@ -295,25 +309,10 @@ def sync_mapping_uploads():
         create_or_update_upload_task_for_drone_service(upload, existing_drone_service_tasks, existing_ds_upload_tasks)
 
     # Self Service Uploads
-    print("Number of Self-service uploads: ", len(self_serviced_uploads))
+    asana_upload_sections(self_serviced_uploads, _ASANA_SECTION_SELF_SERVICED, "Drone", "Self-Serviced")
 
-    existing_self_service_tasks = asana_interface.get_asana_tasks(section=_ASANA_SECTION_SELF_SERVICED)
-
-    print("Number existing Self-service uploads: ", len(existing_self_service_tasks))
-
-    for upload in tqdm(self_serviced_uploads):
-        print(f"---------- On Upload: {upload['id']} ----------")
-        create_or_update_upload_task(upload, existing_self_service_tasks, _ASANA_SECTION_SELF_SERVICED, "Drone", "Self-Serviced")
-    
     # Satellite Uploads
-    print("Number of Satellite uploads: ", len(satellite_uploads))
+    asana_upload_sections(satellite_uploads, _ASANA_SECTION_SATELLITE, "Satellite" , "Serviced")
 
-    existing_satellite_tasks = asana_interface.get_asana_tasks(section=_ASANA_SECTION_SATELLITE)
-
-    print("Number existing Satellite uploads: ", len(existing_satellite_tasks))
-
-    for upload in tqdm(satellite_uploads):
-        print(f"---------- On Upload: {upload['id']} ----------")
-        create_or_update_upload_task(upload, existing_satellite_tasks, _ASANA_SECTION_SATELLITE, "Satellite" , "Serviced")
 
  
