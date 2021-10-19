@@ -117,10 +117,7 @@ resource "aws_lambda_function" "mapping_uploads" {
   package_type     = "Image"
   publish          = true
   role             = data.terraform_remote_state.jobs.outputs.jobs_iam_role_arn
-  handler          = "main.lambda_handler"
-  runtime          = "python3.8"
-  layers           = [data.terraform_remote_state.lambda.outputs.lambda_layer_aero_lib_arn]
-  timeout          = 900
+  timeout          = 180
 
   environment {
     variables = {
