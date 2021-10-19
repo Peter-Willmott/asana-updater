@@ -1,13 +1,16 @@
 import os
 import concurrent.futures
+import boto3
 
 from aeroclient.drf import get_response_assert_success
 from aeroclient.sherlock import get_sherlock_drf_client
+from aeroio.path import s3_path_get_bucket_and_tail
 
 from src.interfaces.asana_interface import AsanaInterface
 from src.utils.secrets import JOBS_SECRET
 
 asana_interface = AsanaInterface(JOBS_SECRET["ASANA_API_KEY"])
+s3_resource = boto3.resource("s3")
 
 _ASANA_PROJECT_ID = "1201076572112640"
 
@@ -34,7 +37,7 @@ _TASK_CUSTOM_FIELD_MAPPING = {
 }
 
 _UPDATE_TASK_ONLY_ON_COMPLETE_STATUS = os.getenv(
-    "UPDATE_TASK_ONLY_ON_COMPLETE_STATUS", "xxx"
+    "UPDATE_TASK_ONLY_ON_COMPLETE_STATUS", "True"
 ).lower() in ("true", "1", "t")
 
 
@@ -103,6 +106,42 @@ def handle_survey_tasks(upload, task_gid, existing_survey_tasks):
             asana_interface.add_task_to_section(task_gid, _ASANA_SECTION_SURVEYS)
 
 
+def add_attachments_for_upload(upload, task_gid, check_existing_attachments=True):
+    upload_id = upload["id"]
+
+    if check_existing_attachments:
+        existing_attachments = list(
+            asana_interface.asana_client.attachments.get_attachments_for_task(task_gid, opt_pretty=True)
+        )
+
+        existing_flight_path_images = [
+            a
+            for a in existing_attachments
+            if a["name"].lower().endswith((".jpg", ".jpeg")) and f"{upload_id}_" in a["name"]
+        ]
+        if len(existing_flight_path_images) > 0:
+            return
+
+    bucket_name, tail = s3_path_get_bucket_and_tail(upload["s3_prefix"])
+
+    bucket = s3_resource.Bucket(bucket_name)
+
+    for object_summary in bucket.objects.filter(Prefix=f"{tail}flight_paths/"):
+        key = object_summary.key
+        if not key.lower().endswith(("jpg", "jpeg")):
+            continue
+
+        print("Uploading image: ", key)
+
+        file_name = os.path.basename(key)
+
+        image_object = bucket.Object(key)
+
+        asana_interface.asana_client.attachments.create_attachment_for_task(
+            task_gid, image_object.get()["Body"].read(), file_name, file_content_type="image/jpeg"
+        )
+
+
 def create_or_update_upload_task(upload, existing_tasks, existing_survey_tasks):
     task_data = {
         "name": f"Upload: {upload['id']}",
@@ -131,9 +170,11 @@ def create_or_update_upload_task(upload, existing_tasks, existing_survey_tasks):
             or _UPDATE_TASK_ONLY_ON_COMPLETE_STATUS is False
         ):
             asana_interface.update_task_in_asana(task_gid, task_data)
+            add_attachments_for_upload(upload, task_gid, True)
     else:
         task = asana_interface.create_task_in_asana(task_data)
         task_gid = task["gid"]
+        add_attachments_for_upload(upload, task_gid, False)
 
     handle_survey_tasks(upload, task_gid, existing_survey_tasks)
 
@@ -186,7 +227,9 @@ def sync_thermal_uploads():
     with concurrent.futures.ThreadPoolExecutor(max_workers=_NUMBER_CONCURRENT_WORKERS) as executor:
         list(
             executor.map(
-                lambda upload: create_or_update_upload_task(upload, existing_upload_tasks, existing_survey_tasks),
+                lambda upload: create_or_update_upload_task(
+                    upload, existing_upload_tasks, existing_survey_tasks
+                ),
                 thermal_uploads,
             )
         )
@@ -195,14 +238,15 @@ def sync_thermal_uploads():
         t
         for t in sorted(
             asana_interface.get_asana_tasks(section=_ASANA_SECTION_UPLOADS),
-            key=lambda t: t["due_at"], reverse=True
+            key=lambda t: t["due_at"],
+            reverse=True,
         )
         if t.get("completed") is False
     ]
 
     # The more concurrent workers the more chance of there being error when sorting (based on timing).
     # The idea is that after 2-3 syncs it should stabilise
-    with concurrent.futures.ThreadPoolExecutor(max_workers=_NUMBER_CONCURRENT_WORKERS) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         list(
             executor.map(
                 lambda task: add_upload_task_to_section_ordered(task["gid"], upload_tasks_to_sort),
@@ -210,4 +254,5 @@ def sync_thermal_uploads():
             )
         )
 
+    print("--- Completing finished uploads ---")
     complete_finished_uploads(thermal_uploads, upload_tasks_to_sort)
