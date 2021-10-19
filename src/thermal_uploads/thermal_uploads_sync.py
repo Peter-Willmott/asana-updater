@@ -111,7 +111,9 @@ def add_attachments_for_upload(upload, task_gid, check_existing_attachments=True
 
     if check_existing_attachments:
         existing_attachments = list(
-            asana_interface.asana_client.attachments.get_attachments_for_task(task_gid, opt_pretty=True)
+            asana_interface.asana_client.attachments.get_attachments_for_task(
+                task_gid, opt_pretty=True
+            )
         )
 
         existing_flight_path_images = [
@@ -119,8 +121,16 @@ def add_attachments_for_upload(upload, task_gid, check_existing_attachments=True
             for a in existing_attachments
             if a["name"].lower().endswith((".jpg", ".jpeg")) and f"{upload_id}_" in a["name"]
         ]
-        if len(existing_flight_path_images) > 0:
+        if len(existing_flight_path_images) > 0 and _UPDATE_TASK_ONLY_ON_COMPLETE_STATUS:
             return
+        else:
+            for existing_flight_path_image in existing_flight_path_images:
+                print(
+                    "Deleting attachment: ",
+                    asana_interface.asana_client.attachments.delete_attachment(
+                        existing_flight_path_image["gid"], opt_pretty=True
+                    ),
+                )
 
     bucket_name, tail = s3_path_get_bucket_and_tail(upload["s3_prefix"])
 
