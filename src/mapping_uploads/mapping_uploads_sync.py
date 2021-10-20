@@ -266,9 +266,9 @@ def create_or_update_upload_task(
     upload, existing_tasks, section, image_type, service_type
 ):
 
-    due_data_sla_micro = upload["sla_datetime"].replace(" ", "T").split("+")[0]
-    due_data_sla = due_data_sla_micro.split(".")[0] + "+0000"
-    sla_date = datetime.datetime.strptime(due_data_sla, "%Y-%m-%dT%H:%M:%S%z").strftime(
+    due_date_sla_micro = upload["sla_datetime"].replace(" ", "T").split("+")[0]
+    due_date_sla = due_date_sla_micro.split(".")[0] + "+0000"
+    sla_date = datetime.datetime.strptime(due_date_sla, "%Y-%m-%dT%H:%M:%S%z").strftime(
         "%Y-%m-%dT%H:%M:%S"
     )
 
@@ -311,7 +311,7 @@ def create_or_update_upload_task(
                 else _ASANA_FIELD_MAPPING[_ASANA_FIELD_SLA_ON_TRACK]["No"]
             },
         },
-        "due_at": due_data_sla,
+        "due_at": due_date_sla,
     }
     existing_upload_tasks = [
         u for u in existing_tasks if u["name"] == task_data["name"]
