@@ -16,4 +16,4 @@ def sync_thermal_uploads_handler(event, context):
 
 
 if __name__ == "__main__":
-    sync_thermal_uploads_handler(None, None)
+    sync_thermal_uploads()

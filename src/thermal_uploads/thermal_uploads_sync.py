@@ -91,6 +91,7 @@ def handle_survey_tasks(upload, task_gid, existing_survey_tasks):
             survey_task_data.pop("approval_status")
             survey_task_data.pop("projects")
             survey_task_data.pop("followers")
+            survey_task_data.pop("parent")
             # Status has not changed, no need to update right now. Will have to look at internal job stage if we want
             # to handle other cases in the future
             if (
