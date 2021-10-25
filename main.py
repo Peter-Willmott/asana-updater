@@ -15,8 +15,10 @@ def sync_survey_issues_to_asana_handler(event, context):
 def sync_thermal_uploads_handler(event, context):
     return sync_thermal_uploads()
 
+
 def sync_mapping_uploads_handler(event, context):
     return sync_mapping_uploads()
+
 
 if __name__ == "__main__":
     sync_thermal_uploads_handler(None, None)
