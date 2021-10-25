@@ -177,14 +177,14 @@ resource "aws_lambda_permission" "allow_cloudwatch_to_call_thermal_uploads" {
   source_arn = aws_cloudwatch_event_rule.every_sixty_minutes.arn
 }
 
-resource "aws_cloudwatch_event_rule" "every_fifteen_minutes" {
-  name = "trigger-every-15-minutes"
-  description = "Event which triggers every 15 minutes"
-  schedule_expression = "rate(15 minutes)"
+resource "aws_cloudwatch_event_rule" "every_thirty_minutes" {
+  name = "trigger-every-30-minutes"
+  description = "Event which triggers every 30 minutes"
+  schedule_expression = "rate(30 minutes)"
 }
 
-resource "aws_cloudwatch_event_target" "trigger_mapping_uploads_every_fifteen_minutes" {
-  rule = aws_cloudwatch_event_rule.every_fifteen_minutes.name
+resource "aws_cloudwatch_event_target" "trigger_mapping_uploads_every_thirty_minutes" {
+  rule = aws_cloudwatch_event_rule.every_thirty_minutes.name
   target_id = aws_lambda_function.mapping_uploads.function_name
   arn = aws_lambda_function.mapping_uploads.arn
 }
@@ -194,5 +194,5 @@ resource "aws_lambda_permission" "allow_cloudwatch_to_call_mapping_uploads" {
   action = "lambda:InvokeFunction"
   function_name = aws_lambda_function.mapping_uploads.function_name
   principal = "events.amazonaws.com"
-  source_arn = aws_cloudwatch_event_rule.every_fifteen_minutes.arn
+  source_arn = aws_cloudwatch_event_rule.every_thirty_minutes.arn
 }

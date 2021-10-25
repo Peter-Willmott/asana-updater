@@ -1,5 +1,4 @@
 import os
-from tqdm import tqdm
 from itertools import groupby
 import datetime
 from dateutil.relativedelta import relativedelta
@@ -153,7 +152,7 @@ def handle_upload_tasks(upload, task_gid, existing_upload_tasks):
     )
 
     print("Uploads to create/update: ", len(uploads_task_data))
-    for upload_task_data in tqdm(uploads_task_data):
+    for upload_task_data in uploads_task_data:
         existing_upload_tasks_by_name = [
             u for u in existing_upload_tasks if u["name"] == upload_task_data["name"]
         ]
@@ -346,7 +345,7 @@ def asana_upload_sections(uploads, section, image, service):
         print("Number of Self-service uploads: ", len(uploads))
         print("Number existing Self-service uploads: ", len(existing_tasks))
 
-    for upload in tqdm(uploads):
+    for upload in uploads:
         print(f"---------- On Upload: {upload['id']} ----------")
         create_or_update_upload_task(upload, existing_tasks, section, image, service)
 
@@ -371,7 +370,7 @@ def sync_mapping_uploads():
     print("Number existing drone services: ", len(existing_drone_service_tasks))
     print("Number existing drone service uploads: ", len(existing_ds_upload_tasks))
 
-    for upload in tqdm(drone_service_uploads):
+    for upload in drone_service_uploads:
         print(
             f"---------- On drone service: {upload[0]['mapping_drone_service_id']} ----------"
         )
