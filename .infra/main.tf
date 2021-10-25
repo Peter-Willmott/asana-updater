@@ -117,7 +117,7 @@ resource "aws_lambda_function" "mapping_uploads" {
   package_type     = "Image"
   publish          = true
   role             = data.terraform_remote_state.jobs.outputs.jobs_iam_role_arn
-  timeout          = 180
+  timeout          = 300
 
   environment {
     variables = {
