@@ -102,6 +102,9 @@ def handle_survey_tasks(upload, task_gid, existing_survey_tasks):
                 asana_interface.add_task_to_section(task_gid, _ASANA_SECTION_SURVEYS)
 
         else:
+            if survey_task_data["completed"]:
+                continue
+
             task = asana_interface.create_task_in_asana(survey_task_data)
             task_gid = task["gid"]
             asana_interface.add_task_to_section(task_gid, _ASANA_SECTION_SURVEYS)
