@@ -162,16 +162,11 @@ def handle_upload_tasks(upload, task_gid, existing_upload_tasks):
             upload_task_data.pop("approval_status")
             upload_task_data.pop("projects")
             upload_task_data.pop("followers")
-            # Status has not changed, no need to update right now.
-            if (
-                upload_task_data["completed"]
-                != existing_upload_tasks_by_name[0]["completed"]
-                or _UPDATE_TASK_ONLY_ON_COMPLETE_STATUS is False
-            ):
-                asana_interface.update_task_in_asana(task_gid, upload_task_data)
-                asana_interface.add_task_to_section(
-                    task_gid, _ASANA_SECTION_DRONE_SERVICE_UPLOADS
-                )
+
+            asana_interface.update_task_in_asana(task_gid, upload_task_data)
+            asana_interface.add_task_to_section(
+                task_gid, _ASANA_SECTION_DRONE_SERVICE_UPLOADS
+            )
 
         else:
             task = asana_interface.create_task_in_asana(upload_task_data)
@@ -188,14 +183,13 @@ def create_or_update_upload_task_for_drone_service(
     slas = [upload[i]["sla_datetime"] for i in range(len(upload))]
     slas.sort(key=lambda e: (e is None, e))
 
+    blocks_completed = [u["count_surveys_processed"] for u in upload]
+    blocks_in_upload = [u["count_orchards"] for u in upload]
+
     if len(upload) > 1:
-        blocks_completed = [u["count_surveys_processed"] for u in upload]
-        blocks_in_upload = [u["count_orchards"] for u in upload]
         farms = [str(", ".join(set([u["farm_name"] for u in upload])))]
     else:
         farms = [f'{upload[0]["farm_name"]} ({upload[0]["farm_id"]})']
-        blocks_completed = [upload[0]["count_surveys_processed"]]
-        blocks_in_upload = [upload[0]["count_orchards"]]
 
     custom_fields = {
         _ASANA_FIELD_CLIENT: f'{upload[0]["client_name"]} ({upload[0]["client_id"]})',
@@ -246,13 +240,8 @@ def create_or_update_upload_task_for_drone_service(
         task_data.pop("projects")
         task_data.pop("followers")
 
-        # If processing status has not changed, no need to update right now
-        if (
-            task_data["completed"] != existing_upload_tasks[0]["completed"]
-            or _UPDATE_TASK_ONLY_ON_COMPLETE_STATUS is False
-        ):
-            asana_interface.update_task_in_asana(task_gid, task_data)
-            asana_interface.add_task_to_section(task_gid, _ASANA_SECTION_DRONE_SERVICE)
+        asana_interface.update_task_in_asana(task_gid, task_data)
+        asana_interface.add_task_to_section(task_gid, _ASANA_SECTION_DRONE_SERVICE)
     else:
         task = asana_interface.create_task_in_asana(task_data)
         task_gid = task["gid"]
@@ -322,13 +311,8 @@ def create_or_update_upload_task(
         task_data.pop("projects")
         task_data.pop("followers")
 
-        # If processing status has not changed, no need to update right now
-        if (
-            task_data["completed"] != existing_upload_tasks[0]["completed"]
-            or _UPDATE_TASK_ONLY_ON_COMPLETE_STATUS is False
-        ):
-            asana_interface.update_task_in_asana(task_gid, task_data)
-            asana_interface.add_task_to_section(task_gid, section)
+        asana_interface.update_task_in_asana(task_gid, task_data)
+        asana_interface.add_task_to_section(task_gid, section)
     else:
         task = asana_interface.create_task_in_asana(task_data)
         task_gid = task["gid"]
